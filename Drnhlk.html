@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Energy Launcher Game</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #fdf6f0; }
+    canvas { border: 3px solid #444; background: #fffafc; margin-top: 20px; }
+    #controls, #quiz { margin-top: 20px; }
+    button, select, input { margin: 5px; padding: 8px; border-radius: 6px; border: none; }
+    button { background-color: #a3d2ca; color: #333; }
+    select, input { background-color: #f9dcc4; }
+    #quiz { background: #ffe5ec; padding: 15px; border-radius: 10px; }
+    #score { font-weight: bold; color: #ffb5a7; }
+    .section { border: 2px solid #cdb4db; padding: 10px; margin: 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1 style="color:#ffb5a7;">Potential vs Kinetic Energy Game</h1>
+  <p id="score">Points: 0</p>
+
+  <!-- QUIZ SECTION -->
+  <div id="quiz" class="section">
+    <h2>Quiz Section</h2>
+    <p id="question"></p>
+    <div id="options"></div>
+    <button onclick="nextQuiz()">Next Quiz</button>
+  </div>
+
+  <!-- LAUNCH CONTROLS -->
+  <div id="controls" class="section">
+    <h2>Launcher Controls</h2>
+    <p>Choose your launcher:</p>
+    <select id="launcher">
+      <option value="slingshot">Slingshot</option>
+      <option value="catapult">Catapult</option>
+      <option value="trebuchet">Trebuchet</option>
+    </select>
+
+    <p>Angle (degrees): <input type="number" id="angle" value="45"></p>
+    <p>Elastic Potential Energy (J): <input type="number" id="energy" value="50"></p>
+    <p>Weight (kg): <input type="number" id="weight" value="5"></p>
+    <p>Launch Height (px): <input type="number" id="height" value="100"></p>
+
+    <p>Gravity:</p>
+    <select id="gravity">
+      <option value="9.8">Earth (9.8 m/s²)</option>
+      <option value="1.62">Moon (1.62 m/s²)</option>
+      <option value="24.79">Saturn (24.79 m/s²)</option>
+      <option value="3.71">Mars (3.71 m/s²)</option>
+    </select>
+
+    <br><button onclick="launch()">Launch Rock (Costs 1 Point)</button>
+  </div>
+
+  <canvas id="gameCanvas" width="700" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    let rock = null;
+    let trajectory = [];
+    let quizIndex = 0;
+    let points = 0;
+
+    // Example pool — expand to 100 questions
+    const quizQuestions = [
+      { q: "At the highest point, kinetic energy is minimum.", type: "tf", answer: true },
+      { q: "Potential energy increases with height.", type: "tf", answer: true },
+      { q: "On the Moon, projectiles travel farther than on Earth.", type: "tf", answer: true },
+      { q: "Which launcher uses a counterweight?", type: "mc", options: ["A: Slingshot", "B: Catapult", "C: Trebuchet"], answer: "C" },
+      { q: "Which has the strongest gravity?", type: "mc", options: ["A: Earth", "B: Mars", "C: Saturn"], answer: "C" },
+      // … add 90+ more questions here …
+    ];
+
+    function updateScore() {
+      document.getElementById("score").innerText = "Points: " + points;
+    }
+
+    function drawLauncher(type, height) {
+      ctx.fillStyle = "#bde0fe";
+      if (type === "slingshot") {
+        ctx.fillRect(30, canvas.height-height, 10, height);
+        ctx.fillRect(60, canvas.height-height, 10, height);
+        ctx.beginPath();
+        ctx.moveTo(35, canvas.height-height);
+        ctx.lineTo(65, canvas.height-height);
+        ctx.strokeStyle = "#ffb5a7";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      } else if (type === "catapult") {
+        ctx.fillRect(40, canvas.height-height, 60, 20);
+        ctx.fillStyle = "#cdb4db";
+        ctx.fillRect(70, canvas.height-height-40, 10, 40);
+      } else if (type === "trebuchet") {
+        ctx.fillRect(30, canvas.height-height, 10, height);
+        ctx.fillRect(80, canvas.height-height, 10, height);
+        ctx.beginPath();
+        ctx.moveTo(35, canvas.height-height);
+        ctx.lineTo(85, canvas.height-height-50);
+        ctx.strokeStyle = "#a3d2ca";
+        ctx.lineWidth = 6;
+        ctx.stroke();
+      }
+    }
+
+    function launch() {
+      if (points <= 0) {
+        alert("You need points from quizzes to launch!");
+        return;
+      }
+      points--; // spend a point to launch
+      updateScore();
+
+      const launcher = document.getElementById("launcher").value;
+      const angle = parseFloat(document.getElementById("angle").value) * Math.PI/180;
+      const energy = parseFloat(document.getElementById("energy").value);
+      const weight = parseFloat(document.getElementById("weight").value);
+      const gravity = parseFloat(document.getElementById("gravity").value);
+      const height = parseFloat(document.getElementById("height").value);
+
+      const velocity = Math.sqrt((2 * energy) / weight);
+
+      rock = { 
+        x: 100, 
+        y: canvas.height-height, 
+        vx: velocity * Math.cos(angle), 
+        vy: -velocity * Math.sin(angle), 
+        g: gravity 
+      };
+
+      trajectory = [];
+      animate(launcher, height);
+    }
+
+    function animate(launcher, height) {
+      if (!rock) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawLauncher(launcher, height);
+
+      ctx.beginPath();
+      ctx.strokeStyle = "#cdb4db";
+      ctx.lineWidth = 2;
+      for (let i=0; i<trajectory.length; i++) {
+        ctx.lineTo(trajectory[i].x, trajectory[i].y);
+      }
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(rock.x, rock.y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffcad4";
+      ctx.fill();
+
+      trajectory.push({x: rock.x, y: rock.y});
+
+      rock.x += rock.vx;
+      rock.y += rock.vy;
+      rock.vy += rock.g * 0.1;
+
+      if (rock.y < canvas.height-5) {
+        requestAnimationFrame(() => animate(launcher, height));
+      }
+    }
+
+    function showQuiz() {
+      const q = quizQuestions[quizIndex % quizQuestions.length];
+      document.getElementById("question").innerText = q.q;
+      const optionsDiv = document.getElementById("options");
+      optionsDiv.innerHTML = "";
+
+      if (q.type === "tf") {
+        optionsDiv.innerHTML = '<button onclick="answer(true)">True</button><button onclick="answer(false)">False</button>';
+      } else {
+        q.options.forEach(opt => {
+          optionsDiv.innerHTML += `<button onclick="answer('${opt.charAt(0)}')">${opt}</button>`;
+        });
+      }
+    }
+
+    function answer(choice) {
+      const q = quizQuestions[quizIndex % quizQuestions.length];
+      let correct = (q.type === "tf") ? (choice === q.answer) : (choice === q.answer);
+      if (correct) {
+        points++;
+        updateScore();
+        alert("Correct! You earned 1 point.");
+      } else {
+        alert("Not quite. No point earned.");
+      }
+      quizIndex++;
+      showQuiz(); // load next question automatically
+    }
+
+    function nextQuiz() {
+      showQuiz();
+    }
+
+    // initialize first quiz
+    showQuiz();
+  </script>
+</body>
+</html>
